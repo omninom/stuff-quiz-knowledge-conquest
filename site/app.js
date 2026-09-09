@@ -3,6 +3,7 @@ const loadingScreen = document.getElementById("loading-screen");
 const quizScreen = document.getElementById("quiz-screen");
 const resultsScreen = document.getElementById("results-screen");
 const errorBox = document.getElementById("error-box");
+const cacheInfo = document.getElementById("cache-info");
 
 const setupForm = document.getElementById("setup-form");
 const startDateInput = document.getElementById("start_date");
@@ -16,6 +17,8 @@ const quizMeta = document.getElementById("quiz-meta");
 const questionText = document.getElementById("question-text");
 const optionsList = document.getElementById("options-list");
 const nextBtn = document.getElementById("next-btn");
+
+const MAX_QUESTIONS = 50;
 
 // Exact icon paths pulled from riddle.com's own quiz player, used for the
 // correct/wrong/neutral answer badges so the reveal state matches 1:1.
@@ -70,6 +73,82 @@ let currentIndex = 0;
 let score = 0;
 let answers = []; // {question, options, correct_answer, chosen, source}
 
+// ---------------------------------------------------------------------------
+// Static data loading. There's no backend anymore — the whole verified
+// question pool (produced by scripts/export_static_data.py and refreshed
+// daily by .github/workflows/update-and-deploy.yml) ships as one JSON file
+// alongside this page. Everything /api/generate used to do server-side
+// (date/series filtering, sampling, option shuffling) now happens here.
+// ---------------------------------------------------------------------------
+let dataLoadPromise = null;
+
+function loadData() {
+  if (!dataLoadPromise) {
+    dataLoadPromise = fetch("data/questions.json", { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((bundle) => {
+        renderCacheInfo(bundle);
+        return bundle;
+      })
+      .catch((err) => {
+        cacheInfo.textContent = "Couldn't load quiz data — try refreshing the page.";
+        throw err;
+      });
+  }
+  return dataLoadPromise;
+}
+
+function fmtDateOnly(iso) {
+  return iso ? iso.slice(0, 10) : "?";
+}
+
+function renderCacheInfo(bundle) {
+  const stats = bundle.stats || {};
+  if (stats.total_questions) {
+    cacheInfo.innerHTML =
+      `Data available: <strong>${stats.total_questions}</strong> answer-verified questions, from ` +
+      `<strong>${fmtDateOnly(stats.earliest)}</strong> to <strong>${fmtDateOnly(stats.latest)}</strong>. ` +
+      `Refreshed daily.`;
+  } else {
+    cacheInfo.textContent = "No quiz data available yet — check back soon.";
+  }
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function sampleWithoutReplacement(arr, n) {
+  return shuffle(arr.slice()).slice(0, n);
+}
+
+// Mirrors the old app.py /api/generate pool-building logic: filter the
+// full verified-question bundle down to the requested date range + series,
+// entirely client-side.
+function buildPool(allQuestions, startDateStr, endDateStr, seriesKeys) {
+  const start = startDateStr ? new Date(`${startDateStr}T00:00:00Z`) : null;
+  const end = endDateStr ? new Date(`${endDateStr}T23:59:59Z`) : null;
+  const seriesSet = new Set(seriesKeys);
+
+  return allQuestions.filter((q) => {
+    if (!seriesSet.has(q.series_key)) return false;
+    const dateStr = q.source && q.source.date;
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return false;
+    if (start && d < start) return false;
+    if (end && d > end) return false;
+    return true;
+  });
+}
+
 function fmtDate(d) {
   return d.toISOString().slice(0, 10);
 }
@@ -100,6 +179,11 @@ function fmtQuestionDate(iso) {
   startDateInput.value = fmtDate(monthAgo);
 })();
 
+// Kick off the data fetch immediately on page load rather than waiting for
+// the form submit, so it's normally already resolved by the time someone
+// clicks "Generate Quiz".
+loadData();
+
 function showScreen(screen) {
   [setupScreen, loadingScreen, quizScreen, resultsScreen].forEach((s) => s.classList.add("hidden"));
   screen.classList.remove("hidden");
@@ -125,46 +209,49 @@ setupForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  const payload = {
-    start_date: startDateInput.value,
-    end_date: endDateInput.value,
-    num_questions: parseInt(document.getElementById("num_questions").value, 10) || 10,
-    series: seriesChecks,
-  };
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value;
+  let numQuestions = parseInt(document.getElementById("num_questions").value, 10) || 10;
+  numQuestions = Math.max(1, Math.min(MAX_QUESTIONS, numQuestions));
 
   showScreen(loadingScreen);
 
   try {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
+    const bundle = await loadData();
+    const pool = buildPool(bundle.questions, startDate, endDate, seriesChecks);
 
-    if (!res.ok) {
+    if (pool.length === 0) {
       showScreen(setupScreen);
-      showError(data.error || "Something went wrong generating the quiz.");
+      showError(
+        "No verified questions found for that date range / quiz type combination. " +
+          "Try widening the date range or selecting different quiz types."
+      );
       return;
     }
 
-    questions = data.questions;
+    const picked = sampleWithoutReplacement(pool, Math.min(numQuestions, pool.length));
+
+    questions = picked.map((item) => ({
+      question: item.question,
+      options: shuffle(item.options.slice()),
+      correct_answer: item.correct_answer,
+      image_url: item.image_url,
+      source: item.source,
+    }));
     currentIndex = 0;
     score = 0;
     answers = [];
 
-    if (questions.length < payload.num_questions) {
+    if (questions.length < numQuestions) {
       // Non-fatal heads-up shown once quiz starts, via the meta line.
-      console.info(
-        `Only ${questions.length} of ${payload.num_questions} requested questions were available.`
-      );
+      console.info(`Only ${questions.length} of ${numQuestions} requested questions were available.`);
     }
 
     renderQuestion();
     showScreen(quizScreen);
   } catch (err) {
     showScreen(setupScreen);
-    showError("Network error — could not reach the quiz server.");
+    showError("Couldn't load quiz data — try refreshing the page.");
   }
 });
 

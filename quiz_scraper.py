@@ -64,10 +64,13 @@ SERIES_RULES = [
 # formats) which trips up verification (see README "Known limitations").
 # It's still recognized by SERIES_RULES above so any that slip into the
 # cache are labeled correctly, just not offered as a selectable option.
+# Kids Trivia was dropped as a feature entirely (not just hidden) — the
+# static-site data pipeline never scrapes it going forward (see
+# scripts/update_data.py's series_keys filter) and the export step also
+# defensively excludes it from site/data/questions.json.
 PICKLIST = [
     {"key": "morning", "label": "Morning Trivia"},
     {"key": "afternoon", "label": "Afternoon Trivia"},
-    {"key": "kids", "label": "Kids Trivia"},
 ]
 
 _cache_lock = threading.Lock()

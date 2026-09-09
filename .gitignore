@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+screenshots/
+.DS_Store
+
+# Working scrape cache — persisted via a GitHub Release asset (data-cache),
+# not committed. See README for the static-site/Actions architecture.
+cache/
+
+# Generated at deploy time by scripts/export_static_data.py, never committed.
+site/data/

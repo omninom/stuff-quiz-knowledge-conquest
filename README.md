@@ -1,12 +1,22 @@
 # Stuff Quiz Knowledge Conquest
 
-A small web app that generates a custom trivia quiz from Stuff.co.nz's daily
-quizzes. Pick a date range, how many questions you want, and which quiz
-types to draw from (currently Morning / Afternoon / Kids Trivia) — it
-randomly samples questions from that pool and runs an interactive quiz with
-scoring. The quiz-taking screen is styled to match riddle.com's own quiz
-player (colors, fonts, the correct/wrong reveal pills, per-question header
-photos, and the image fade-in transition) — see "How it works" below.
+A small static site that generates a custom trivia quiz from Stuff.co.nz's
+daily quizzes. Pick a date range, how many questions you want, and which
+quiz types to draw from (Morning / Afternoon Trivia) — it randomly samples
+questions from that pool and runs an interactive quiz with scoring. The
+quiz-taking screen is styled to match riddle.com's own quiz player (colors,
+fonts, the correct/wrong reveal pills, per-question header photos, and the
+image fade-in transition) — see "How it works" below.
+
+The site itself (`site/`) is fully static and hosted on **GitHub Pages** —
+there's no backend serving requests. A GitHub Action runs on a daily
+schedule to scrape/verify newly published quizzes and republish the data
+file the page loads; the browser does all the date/series filtering and
+question sampling client-side. See "Architecture" below for how the pieces
+fit together.
+
+> Kids Trivia was dropped as a feature (previously offered alongside
+> Morning/Afternoon) — see "Known limitations".
 
 ## How it works
 
@@ -31,41 +41,103 @@ photos, and the image fade-in transition) — see "How it works" below.
    API, so `riddle_verify.py` captures each question's image URL during the
    same headless-browser playthrough used for answer verification. The
    frontend preloads the *next* question's image while the current one is
-   still on screen (see `static/app.js`), so by the time you click "Next"
+   still on screen (see `site/app.js`), so by the time you click "Next"
    it's normally already cached and fades in immediately — matching
    riddle.com's own `opacity 0.5s ease-out` reveal instead of trailing a
    live fetch. Questions without a captured image yet fall back to a plain
    gradient banner rather than showing nothing.
-5. Everything is cached in `cache/quiz_cache.json` so repeat requests for an
-   overlapping date range are instant.
+5. Everything scraped/verified is kept in a working cache
+   (`cache/quiz_cache.json`) so repeat scrapes for an overlapping date range
+   are instant. A filtered, flattened snapshot of just the verified
+   Morning/Afternoon questions is what the static site actually serves —
+   see "Architecture".
 
-## Setup
+## Architecture
+
+There's no server handling quiz requests. A scheduled GitHub Action
+scrapes/verifies new quizzes and republishes a static data file; the page
+itself just fetches that file and does all filtering/sampling in the
+browser.
+
+```mermaid
+flowchart TB
+    subgraph gha ["GitHub Action (daily, 3:30pm NZST)"]
+        dl["Download quiz_cache.json\nfrom the data-cache Release asset"]
+        scrape["scripts/update_data.py:\nensure_range_cached() for a trailing\nwindow, Morning+Afternoon only"]
+        export["export_static_data.py:\nfilter to verified, non-dropped\nquestions -> site/data/questions.json"]
+        upload_cache["Re-upload quiz_cache.json\nto the data-cache Release"]
+        deploy["Deploy site/ to GitHub Pages"]
+        dl --> scrape --> export
+        export --> upload_cache
+        export --> deploy
+    end
+    browser["Visitor's browser"] -->|"loads the page"| pages["GitHub Pages\n(site/index.html, app.js, data/questions.json)"]
+    deploy --> pages
+```
+
+The git repo only ever holds source code. The large/mutable working cache
+(raw scrape state, including any not-yet-verified questions) is **not**
+committed — it's persisted as a **GitHub Release asset** (tag `data-cache`),
+downloaded at the start of each workflow run and re-uploaded at the end. The
+derived `site/data/questions.json` the page actually fetches is generated
+fresh every run and deployed straight to Pages — also never committed to
+git. This keeps the repo itself small no matter how much history accumulates.
+
+### One-time GitHub-side setup
+
+These aren't automated (need repo admin/push access):
+
+1. **Seed the `data-cache` release** with an initial working cache, so the
+   first scheduled run doesn't have to rebuild everything from scratch:
+   ```bash
+   gh release create data-cache cache/quiz_cache.json \
+     -R <owner>/<repo> \
+     --title "Working scrape cache (do not use directly)" \
+     --notes "Internal cache for quiz_scraper.py — see README."
+   ```
+   (If skipped, the workflow creates an empty one on its first run and
+   backfills gradually via its own trailing scrape window.)
+2. **Enable GitHub Pages with source = GitHub Actions:**
+   ```bash
+   gh api -X PUT repos/<owner>/<repo>/pages -f build_type=workflow
+   ```
+   or manually via Settings → Pages → Build and deployment → Source.
+
+After that, [.github/workflows/update-and-deploy.yml](.github/workflows/update-and-deploy.yml)
+handles everything else on its own schedule (`workflow_dispatch` also
+available for a manual run).
+
+## Local development
+
+The original Flask app (`app.py`, `templates/`, `static/`) still works
+locally and is handy for browsing/pre-warming the cache before it's picked
+up by CI, but it's no longer how the deployed site works.
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python -m playwright install chromium
-```
-
-## Running
-
-```bash
-source venv/bin/activate
 python app.py
 ```
 
-Then open http://127.0.0.1:5001
+Then open http://127.0.0.1:5001. The cache is seeded on first run from
+`../stuff_quizzes.json` (the output of the standalone
+`scrape_stuff_quizzes.py` script one level up), if present.
 
-The cache is seeded on first run from `../stuff_quizzes.json` (the output of
-the standalone `scrape_stuff_quizzes.py` script one level up), if present.
+To preview the actual static site locally against your local cache:
+
+```bash
+python scripts/export_static_data.py   # writes site/data/questions.json
+python -m http.server 8000 -d site
+```
+
+Then open http://127.0.0.1:8000.
 
 ## Re-verifying / backfilling the cache offline
 
-Generating a quiz for a brand-new date range triggers scraping *and*
-verification inline (in parallel, up to 8 quizzes at once), which can take
-a while for a big, never-seen-before range. To pre-warm the cache instead of
-waiting on a request:
+To pre-warm/backfill the local working cache instead of waiting on the
+next scheduled Action run:
 
 ```bash
 source venv/bin/activate
@@ -85,27 +157,35 @@ python verify_cache.py --images-only --workers 8
 
 Image capture in particular is best-effort per playthrough (see "Known
 limitations"), so re-running `--images-only` a few times tends to keep
-picking up stragglers it missed the first time — check current coverage any
-time via `GET /api/stats`.
+picking up stragglers it missed the first time.
 
-**Don't run `verify_cache.py` at the same time as generating quizzes that
-require fresh scraping** — both processes independently load/save
-`cache/quiz_cache.json`, and whichever finishes saving last will clobber the
-other's progress.
+**Don't run `verify_cache.py` at the same time as `app.py` or
+`scripts/update_data.py` against the same cache file** — they all
+independently load/save `cache/quiz_cache.json`, and whichever finishes
+saving last will clobber the others' progress.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `app.py` | Flask app + API (`/api/generate`, `/api/stats`, `/api/series`) |
 | `quiz_scraper.py` | Discovery (Wayback CDX) + content fetch (Stuff API) + caching |
 | `riddle_verify.py` | Headless-browser ground-truth answer verification + image capture |
 | `verify_cache.py` | CLI to batch-verify/backfill the whole cache in parallel |
-| `templates/`, `static/` | Frontend (server-rendered shell + vanilla JS) |
-| `cache/quiz_cache.json` | Persistent cache of scraped + verified quizzes |
+| `scripts/update_data.py` | Daily CI entry point: scrape/verify a trailing window, then export |
+| `scripts/export_static_data.py` | Filters the working cache down to verified questions -> `site/data/questions.json` |
+| `.github/workflows/update-and-deploy.yml` | Scheduled Action: run `update_data.py`, deploy `site/` to Pages |
+| `site/` | The deployed static site (HTML/CSS/vanilla JS + generated `data/questions.json`) |
+| `cache/quiz_cache.json` | Working cache of scraped + verified quizzes (gitignored — lives in the `data-cache` Release asset) |
+| `app.py`, `templates/`, `static/` | Legacy local-dev Flask app (see "Local development") |
 
 ## Known limitations
 
+- **Kids Trivia was dropped as a feature entirely**, not just hidden — it's
+  no longer in `quiz_scraper.PICKLIST`, and `scripts/update_data.py` never
+  discovers/scrapes it going forward (it passes `series_keys=["morning",
+  "afternoon"]` into `ensure_range_cached`). `export_static_data.py` also
+  defensively excludes it from `site/data/questions.json` in case any stale
+  entries remain in the working cache.
 - A small number of quizzes mix multiple-choice questions with free-text
   "TextEntry" blocks (e.g. some Weekender Trivia editions). The verifier
   only knows how to play through radio-button questions, so a TextEntry
@@ -143,5 +223,3 @@ other's progress.
   stop partway through a quiz.
 - **Handle non-standard visual quiz formats** (e.g. image-matching) instead
   of skipping them outright, if a text-based fallback can be found.
-- Longer-term/lower priority: swap the Flask dev server for a real WSGI
-  server if this ever needs to run somewhere besides localhost.

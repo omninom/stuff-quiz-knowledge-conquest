@@ -1,0 +1,74 @@
+name: Update quiz data and deploy
+
+on:
+  schedule:
+    # 03:30 UTC = 3:30pm NZST. NZ observes daylight saving (NZDT, UTC+13)
+    # roughly late Sep - early Apr, during which this drifts to 4:30pm
+    # local — still comfortably after both the morning and afternoon quiz
+    # are published, so not worth a seasonal cron split.
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # create/update the data-cache release asset
+  pages: write # deploy to GitHub Pages
+  id-token: write # required by actions/deploy-pages
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Download working cache from data-cache release
+        run: |
+          mkdir -p cache
+          gh release download data-cache -p quiz_cache.json -D cache/ --clobber || \
+            echo "No existing data-cache release/asset found — starting with an empty cache."
+
+      - name: Scrape/verify recent quizzes and export static data
+        run: python scripts/update_data.py
+
+      - name: Re-upload working cache to data-cache release
+        run: |
+          if gh release view data-cache >/dev/null 2>&1; then
+            gh release upload data-cache cache/quiz_cache.json --clobber
+          else
+            gh release create data-cache cache/quiz_cache.json \
+              --title "Working scrape cache (do not use directly)" \
+              --notes "Internal working cache for quiz_scraper.py, persisted here instead of git history so this workflow can pick up where it left off without re-scraping/re-verifying everything. Raw/unfiltered — the site is served from the filtered site/data/questions.json artifact, not this file."
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
