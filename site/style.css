@@ -1,8 +1,5 @@
 :root {
-  /* Site theme (light). Everything outside the quiz-taking screen uses
-     these — the quiz screen itself deliberately does NOT use these vars
-     (see "Quiz screen" section below), so it looks identical regardless
-     of theme. */
+  /* Site theme (light). */
   --bg: #f6f5f1;
   --surface: #ffffff;
   --surface-muted: #efece4;
@@ -20,11 +17,35 @@
   --danger-border: #f0c4c0;
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
-  /* Fixed constants used only by the quiz-taking screen's image fallback —
-     intentionally not renamed to a "theme" variable and never overridden
-     in the dark theme below, so it never changes. */
+  /* Quiz-taking screen. Layout/interaction mirrors riddle.com exactly (see
+     "Quiz screen" section below), but colors theme like the rest of the
+     site — these are riddle.com's own light-mode colors as defaults. */
   --riddle-grad-a: #667eea;
   --riddle-grad-b: #764ba2;
+  --quiz-bg: #ffffff;
+  --quiz-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  --quiz-text: #000000;
+  --quiz-meta-text: #636e72;
+  --quiz-choice-bg: #ffffff;
+  --quiz-choice-border: rgba(0, 0, 0, 0.1);
+  --quiz-choice-hover-bg: #faf5ff;
+  --quiz-choice-hover-border: rgba(141, 29, 232, 0.4);
+  --quiz-pager-bg: #ffffff;
+  --quiz-pager-text: #000000;
+  --quiz-pager-border: rgba(0, 0, 0, 0.08);
+  --quiz-score-bg: #e9fce9;
+  --quiz-score-text: #058e1e;
+  --quiz-correct-bg: #ddfadb;
+  --quiz-correct-border: #058e1e;
+  --quiz-correct-text: #058e1e;
+  --quiz-wrong-bg: #ffe1e1;
+  --quiz-wrong-border: #c70000;
+  --quiz-wrong-text: #c70000;
+  --quiz-neutral-bg: #f5f5f7;
+  --quiz-neutral-border: rgba(0, 0, 0, 0.1);
+  --quiz-neutral-text: rgba(0, 0, 0, 0.55);
+  --quiz-neutral-badge-bg: rgba(0, 0, 0, 0.12);
+  --quiz-neutral-badge-icon: rgba(0, 0, 0, 0.45);
 }
 
 :root[data-theme="dark"] {
@@ -43,6 +64,31 @@
   --danger: #e2857e;
   --danger-bg: #332221;
   --danger-border: #55302d;
+
+  --quiz-bg: #1c1d22;
+  --quiz-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  --quiz-text: #f0f0f0;
+  --quiz-meta-text: #9a9aa2;
+  --quiz-choice-bg: #24252b;
+  --quiz-choice-border: rgba(255, 255, 255, 0.12);
+  --quiz-choice-hover-bg: #2b2438;
+  --quiz-choice-hover-border: rgba(196, 140, 255, 0.5);
+  --quiz-pager-bg: #2a2b31;
+  --quiz-pager-text: #f0f0f0;
+  --quiz-pager-border: rgba(255, 255, 255, 0.12);
+  --quiz-score-bg: rgba(6, 142, 30, 0.22);
+  --quiz-score-text: #6ee08a;
+  --quiz-correct-bg: rgba(6, 142, 30, 0.22);
+  --quiz-correct-border: #4fd671;
+  --quiz-correct-text: #6ee08a;
+  --quiz-wrong-bg: rgba(199, 0, 0, 0.25);
+  --quiz-wrong-border: #ff6b6b;
+  --quiz-wrong-text: #ff8f8f;
+  --quiz-neutral-bg: rgba(255, 255, 255, 0.06);
+  --quiz-neutral-border: rgba(255, 255, 255, 0.12);
+  --quiz-neutral-text: rgba(255, 255, 255, 0.55);
+  --quiz-neutral-badge-bg: rgba(255, 255, 255, 0.18);
+  --quiz-neutral-badge-icon: rgba(255, 255, 255, 0.6);
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
@@ -284,28 +330,24 @@ input[type="number"]:focus {
 }
 
 /* ==========================================================================
-   Quiz screen — deliberately mirrors riddle.com's own quiz-player styling
-   (colors/shapes/type extracted from a live riddle.com/view/<id> embed):
+   Quiz screen — deliberately mirrors riddle.com's own quiz-player LAYOUT
+   (colors/shapes/type originally extracted from a live riddle.com/view/<id>
+   embed, in light mode):
      - purple "Next" pill:      #8D1DE8, 24px radius, uppercase 12px/600
-     - correct fill/badge:      #76EC82 / #DDFADB bg, #058E1E text
-     - wrong (selected) badge:  #C70000 bg, white text
-     - neutral (other) badge:   white bg, black text, faint border
-     - choice card:             1px rgba(0,0,0,.1) border, 8px radius
+     - correct/wrong/neutral badges, choice card shape, pager/score pills
    Riddle also shows a live per-choice vote percentage bar; we don't have
    that aggregate data, so each choice fills solid on reveal instead.
 
-   Everything in this section is intentionally pinned to fixed values
-   (never `var(--bg)` / `var(--text)` / etc.) so the actual quiz-taking
-   experience looks identical regardless of the site's light/dark theme —
-   only the surrounding chrome (header, setup form, results list) themes.
+   Colors here use the --quiz-* variables (defined at the top of this file)
+   rather than riddle.com's own fixed light-mode values, so the quiz-taking
+   screen gets a real dark mode too — but the structure/shapes/interaction
+   states stay exactly as riddle.com's do in either theme.
    ========================================================================== */
 .riddle-quiz {
-  /* Pins the outer card frame to its original light-mode appearance,
-     overriding the theme-aware .card rule above. */
-  background: #ffffff;
+  background: var(--quiz-bg);
   border: none;
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--quiz-shadow);
 }
 
 .sr-only {
@@ -329,7 +371,11 @@ input[type="number"]:focus {
 .riddle-media {
   position: relative;
   margin: -28px -28px 20px;
-  height: 200px;
+  /* Matches riddle.com's own media area proportions (a live embed's photo
+     is noticeably taller relative to its width than a 200px fixed height
+     allowed for) — aspect-ratio instead of a fixed px height also means
+     it scales correctly at any card width, not just this app's default. */
+  aspect-ratio: 16 / 9;
   background: linear-gradient(135deg, var(--riddle-grad-a), var(--riddle-grad-b));
   overflow: hidden;
 }
@@ -362,14 +408,14 @@ input[type="number"]:focus {
 }
 
 .riddle-pager {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--quiz-pager-bg);
+  border: 1px solid var(--quiz-pager-border);
   border-radius: 12px;
   padding: 6px 14px;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: #000;
+  color: var(--quiz-pager-text);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
@@ -377,8 +423,8 @@ input[type="number"]:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #e9fce9;
-  color: #058e1e;
+  background: var(--quiz-score-bg);
+  color: var(--quiz-score-text);
   border-radius: 12px;
   padding: 6px 14px;
   font-size: 0.8rem;
@@ -390,12 +436,12 @@ input[type="number"]:focus {
 .riddle-score-pill svg {
   width: 12px;
   height: 12px;
-  fill: #058e1e;
+  fill: var(--quiz-score-text);
 }
 
 .quiz-meta {
   font-size: 0.78rem;
-  color: #636e72;
+  color: var(--quiz-meta-text);
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -408,7 +454,7 @@ input[type="number"]:focus {
   letter-spacing: -0.02em;
   margin: 6px 0 22px;
   line-height: 1.35;
-  color: #000;
+  color: var(--quiz-text);
 }
 
 .options-list {
@@ -426,19 +472,19 @@ input[type="number"]:focus {
   width: 100%;
   text-align: left;
   padding: 15px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--quiz-choice-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--quiz-choice-bg);
   font-family: inherit;
   font-size: 1rem;
-  color: #000;
+  color: var(--quiz-text);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .riddle-choice:hover:not(:disabled) {
-  border-color: rgba(141, 29, 232, 0.4);
-  background: #faf5ff;
+  border-color: var(--quiz-choice-hover-border);
+  background: var(--quiz-choice-hover-bg);
 }
 
 .riddle-choice:disabled {
@@ -472,13 +518,15 @@ input[type="number"]:focus {
 }
 
 .riddle-choice.is-correct {
-  background: #ddfadb;
-  border-color: #058e1e;
-  color: #058e1e;
+  background: var(--quiz-correct-bg);
+  border-color: var(--quiz-correct-border);
+  color: var(--quiz-correct-text);
   font-weight: 600;
 }
 
 .riddle-choice.is-correct .riddle-choice-badge {
+  /* Fixed bright green regardless of theme — a small saturated accent
+     chip, not a background surface, so it doesn't need a dark variant. */
   opacity: 1;
   background: #76ec82;
 }
@@ -488,9 +536,9 @@ input[type="number"]:focus {
 }
 
 .riddle-choice.is-wrong-selected {
-  background: #ffe1e1;
-  border-color: #c70000;
-  color: #c70000;
+  background: var(--quiz-wrong-bg);
+  border-color: var(--quiz-wrong-border);
+  color: var(--quiz-wrong-text);
   font-weight: 600;
 }
 
@@ -504,18 +552,18 @@ input[type="number"]:focus {
 }
 
 .riddle-choice.is-neutral {
-  background: #f5f5f7;
-  border-color: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 0.55);
+  background: var(--quiz-neutral-bg);
+  border-color: var(--quiz-neutral-border);
+  color: var(--quiz-neutral-text);
 }
 
 .riddle-choice.is-neutral .riddle-choice-badge {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--quiz-neutral-badge-bg);
 }
 
 .riddle-choice.is-neutral .riddle-choice-badge svg {
-  fill: rgba(0, 0, 0, 0.45);
+  fill: var(--quiz-neutral-badge-icon);
 }
 
 .next-btn-wrap {
