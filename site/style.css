@@ -1,14 +1,49 @@
 :root {
-  --purple: #6c5ce7;
-  --purple-dark: #5849c4;
-  --green: #00b894;
-  --red: #e74c3c;
-  --bg-grad-a: #667eea;
-  --bg-grad-b: #764ba2;
-  --card-bg: #ffffff;
-  --text: #2d3436;
-  --text-muted: #636e72;
-  --border: #e6e6f0;
+  /* Site theme (light). Everything outside the quiz-taking screen uses
+     these — the quiz screen itself deliberately does NOT use these vars
+     (see "Quiz screen" section below), so it looks identical regardless
+     of theme. */
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-muted: #efece4;
+  --text: #1c1c1c;
+  --text-muted: #6b6b6b;
+  --border: #e0ddd3;
+  --accent: #8a2b2b;
+  --accent-hover: #6e2222;
+  --accent-tint: #f5e9e8;
+  --success: #2f7a4f;
+  --success-bg: #eaf6ee;
+  --success-border: #bfe3cc;
+  --danger: #b3261e;
+  --danger-bg: #fbebe9;
+  --danger-border: #f0c4c0;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  /* Fixed constants used only by the quiz-taking screen's image fallback —
+     intentionally not renamed to a "theme" variable and never overridden
+     in the dark theme below, so it never changes. */
+  --riddle-grad-a: #667eea;
+  --riddle-grad-b: #764ba2;
+}
+
+:root[data-theme="dark"] {
+  --bg: #14151a;
+  --surface: #1d1e24;
+  --surface-muted: #24252c;
+  --text: #ececec;
+  --text-muted: #9a9aa2;
+  --border: #303138;
+  --accent: #d98686;
+  --accent-hover: #e6a3a3;
+  --accent-tint: #2c2022;
+  --success: #6bbf8f;
+  --success-bg: #1c2b22;
+  --success-border: #2d4a37;
+  --danger: #e2857e;
+  --danger-bg: #332221;
+  --danger-border: #55302d;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -18,39 +53,85 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: linear-gradient(135deg, var(--bg-grad-a), var(--bg-grad-b));
+  background: var(--bg);
   min-height: 100vh;
   color: var(--text);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .app {
   max-width: 640px;
   margin: 0 auto;
-  padding: 32px 20px 60px;
+  padding: 40px 20px 60px;
 }
 
 .app-header {
-  text-align: center;
-  color: white;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
   margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
 }
 
 .app-header h1 {
-  margin: 0 0 6px;
-  font-size: 1.6rem;
-  line-height: 1.25;
+  margin: 0 0 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .subtitle {
   margin: 0;
-  opacity: 0.9;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.theme-toggle {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+}
+
+.theme-toggle svg {
+  width: 17px;
+  height: 17px;
+}
+
+.theme-toggle .icon-moon {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-sun {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-moon {
+  display: block;
 }
 
 .card {
-  background: var(--card-bg);
-  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
   padding: 28px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--card-shadow);
   overflow: hidden;
 }
 
@@ -59,13 +140,18 @@ body {
 }
 
 .cache-info {
-  background: #f4f3ff;
-  color: #4834d4;
-  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 12px 14px;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   margin-bottom: 20px;
   line-height: 1.4;
+}
+
+.cache-info strong {
+  color: var(--text);
 }
 
 .field-row {
@@ -81,26 +167,28 @@ body {
 label {
   display: block;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 input[type="date"],
 input[type="number"] {
   width: 100%;
   padding: 10px 12px;
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   font-size: 1rem;
   color: var(--text);
-  background: #fafafe;
+  background: var(--surface);
 }
 
 input[type="date"]:focus,
 input[type="number"]:focus {
   outline: none;
-  border-color: var(--purple);
+  border-color: var(--accent);
 }
 
 .picklist {
@@ -113,54 +201,58 @@ input[type="number"]:focus {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f4f3ff;
-  border: 1.5px solid transparent;
-  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   padding: 8px 14px;
   cursor: pointer;
   font-weight: 500;
   font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: normal;
   margin: 0;
-  color: #4834d4;
-  transition: all 0.15s ease;
+  color: var(--text);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .checkbox-pill:has(input:checked) {
-  border-color: var(--purple);
-  background: #e6e1ff;
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent);
 }
 
 .checkbox-pill input {
-  accent-color: var(--purple);
+  accent-color: var(--accent);
 }
 
 .btn-primary {
   width: 100%;
-  background: var(--purple);
+  background: var(--accent);
   color: white;
   border: none;
-  border-radius: 12px;
-  padding: 14px;
-  font-size: 1.05rem;
-  font-weight: 700;
+  border-radius: 6px;
+  padding: 13px;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease;
   margin-top: 6px;
 }
 
 .btn-primary:hover {
-  background: var(--purple-dark);
+  background: var(--accent-hover);
 }
 
 .btn-primary:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .error-box {
   margin-top: 16px;
-  background: #fdecea;
-  color: var(--red);
-  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
   padding: 12px 14px;
   font-size: 0.9rem;
 }
@@ -171,10 +263,10 @@ input[type="number"]:focus {
 }
 
 .spinner {
-  width: 42px;
-  height: 42px;
-  border: 4px solid var(--border);
-  border-top-color: var(--purple);
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   margin: 8px auto 18px;
   animation: spin 0.8s linear infinite;
@@ -201,7 +293,21 @@ input[type="number"]:focus {
      - choice card:             1px rgba(0,0,0,.1) border, 8px radius
    Riddle also shows a live per-choice vote percentage bar; we don't have
    that aggregate data, so each choice fills solid on reveal instead.
+
+   Everything in this section is intentionally pinned to fixed values
+   (never `var(--bg)` / `var(--text)` / etc.) so the actual quiz-taking
+   experience looks identical regardless of the site's light/dark theme —
+   only the surrounding chrome (header, setup form, results list) themes.
    ========================================================================== */
+.riddle-quiz {
+  /* Pins the outer card frame to its original light-mode appearance,
+     overriding the theme-aware .card rule above. */
+  background: #ffffff;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -224,7 +330,7 @@ input[type="number"]:focus {
   position: relative;
   margin: -28px -28px 20px;
   height: 200px;
-  background: linear-gradient(135deg, var(--bg-grad-a), var(--bg-grad-b));
+  background: linear-gradient(135deg, var(--riddle-grad-a), var(--riddle-grad-b));
   overflow: hidden;
 }
 
@@ -289,7 +395,7 @@ input[type="number"]:focus {
 
 .quiz-meta {
   font-size: 0.78rem;
-  color: var(--text-muted);
+  color: #636e72;
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -450,6 +556,7 @@ input[type="number"]:focus {
 #results-heading {
   text-align: center;
   margin-top: 0;
+  font-family: Georgia, "Times New Roman", serif;
 }
 
 .results-list {
@@ -460,24 +567,26 @@ input[type="number"]:focus {
 }
 
 .result-item {
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   padding: 12px 14px;
+  background: var(--surface);
 }
 
 .result-item.correct {
-  border-color: var(--green);
-  background: #f2fdf9;
+  border-color: var(--success-border);
+  background: var(--success-bg);
 }
 
 .result-item.incorrect {
-  border-color: var(--red);
-  background: #fdf5f4;
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
 }
 
 .result-question {
   font-weight: 600;
   margin-bottom: 6px;
+  color: var(--text);
 }
 
 .result-answer {
@@ -496,18 +605,18 @@ input[type="number"]:focus {
 }
 
 .result-source a {
-  color: var(--purple);
+  color: var(--accent);
   text-decoration: none;
 }
 
 .app-footer {
   text-align: center;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-muted);
   font-size: 0.8rem;
   margin-top: 24px;
 }
 
 .app-footer a {
-  color: white;
+  color: var(--accent);
   text-decoration: underline;
 }

@@ -6,17 +6,14 @@ static site (site/) fetches directly at runtime.
 
 Only two things ever make it into the exported bundle:
   1. Questions whose correct answer has been ground-truth verified via a
-     live headless-browser playthrough (riddle_verify.py) — same rule
-     app.py's /api/generate has always enforced, just applied here instead.
+     live headless-browser playthrough (riddle_verify.py).
   2. Questions belonging to a series still in PICKLIST (Morning/Afternoon
      Trivia). Kids Trivia is excluded defensively even if stale entries
      remain in the raw working cache (see quiz_scraper.PICKLIST docstring).
 
 The output intentionally flattens "quiz -> questions" into one flat list of
-question records, each carrying its own source metadata — this is exactly
-the shape the old /api/generate pool-building step (app.py) produced right
-before sampling, so the frontend can filter/sample it directly with no
-extra grouping logic.
+question records, each carrying its own source metadata, so the frontend
+(site/app.js) can filter/sample it directly with no extra grouping logic.
 
 Usage:
     python scripts/export_static_data.py [output_path]

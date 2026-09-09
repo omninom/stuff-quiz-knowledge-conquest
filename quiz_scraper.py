@@ -195,7 +195,8 @@ def parse_story(story_json: dict):
                     # Placeholder only — NOT trustworthy until riddle_verify
                     # confirms it (or verify_cache.py sets "verified": True
                     # for single-option questions, which are unambiguous).
-                    # app.py only ever serves questions with verified=True.
+                    # scripts/export_static_data.py only ever exports
+                    # questions with verified=True.
                     "correct_answer": options[0],
                 }
             )

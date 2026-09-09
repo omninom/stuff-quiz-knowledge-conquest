@@ -109,38 +109,52 @@ available for a manual run).
 
 ## Local development
 
-The original Flask app (`app.py`, `templates/`, `static/`) still works
-locally and is handy for browsing/pre-warming the cache before it's picked
-up by CI, but it's no longer how the deployed site works.
+There's no backend to run locally anymore — just Python scripts that touch
+the working cache, and the static site itself.
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python -m playwright install chromium
-python app.py
 ```
 
-Then open http://127.0.0.1:5001. The cache is seeded on first run from
-`../stuff_quizzes.json` (the output of the standalone
-`scrape_stuff_quizzes.py` script one level up), if present.
-
-To preview the actual static site locally against your local cache:
+**Preview the site** against your local cache (regenerates
+`site/data/questions.json` from whatever's currently in
+`cache/quiz_cache.json`, then serves `site/` as-is):
 
 ```bash
-python scripts/export_static_data.py   # writes site/data/questions.json
+python scripts/export_static_data.py
 python -m http.server 8000 -d site
 ```
 
-Then open http://127.0.0.1:8000.
+Then open http://127.0.0.1:8000. Re-run `export_static_data.py` any time
+your cache changes and refresh the page to pick it up.
+
+**Grow/refresh the cache for a date range** (the same thing the daily
+GitHub Action does, but for whatever range you want — e.g. to backfill
+weeks the Action hasn't gotten to yet, or right after a code change to
+`quiz_scraper.py`/`riddle_verify.py` you want to test):
+
+```bash
+python scripts/update_data.py --start-date 2026-01-01 --end-date 2026-01-31
+```
+
+This fetches + ground-truth-verifies any not-yet-cached quizzes in that
+range and re-exports `site/data/questions.json` when it's done. Omit the
+dates to use the default trailing-N-days window (`--window-days`, default
+7) instead — this is also what the CI workflow calls with no arguments.
+
+If `cache/quiz_cache.json` doesn't exist yet at all, it's seeded from
+`../stuff_quizzes.json` (the output of the standalone
+`scrape_stuff_quizzes.py` script one level up), if present.
 
 ## Re-verifying / backfilling the cache offline
 
-To pre-warm/backfill the local working cache instead of waiting on the
-next scheduled Action run:
+To pre-warm/backfill the *entire* local working cache instead of targeting
+a specific date range:
 
 ```bash
-source venv/bin/activate
 python verify_cache.py --workers 8
 ```
 
@@ -159,10 +173,10 @@ Image capture in particular is best-effort per playthrough (see "Known
 limitations"), so re-running `--images-only` a few times tends to keep
 picking up stragglers it missed the first time.
 
-**Don't run `verify_cache.py` at the same time as `app.py` or
-`scripts/update_data.py` against the same cache file** — they all
-independently load/save `cache/quiz_cache.json`, and whichever finishes
-saving last will clobber the others' progress.
+**Don't run `verify_cache.py` and `scripts/update_data.py` against the same
+cache file at the same time** — they both independently load/save
+`cache/quiz_cache.json`, and whichever finishes saving last will clobber
+the other's progress.
 
 ## Files
 
@@ -171,12 +185,11 @@ saving last will clobber the others' progress.
 | `quiz_scraper.py` | Discovery (Wayback CDX) + content fetch (Stuff API) + caching |
 | `riddle_verify.py` | Headless-browser ground-truth answer verification + image capture |
 | `verify_cache.py` | CLI to batch-verify/backfill the whole cache in parallel |
-| `scripts/update_data.py` | Daily CI entry point: scrape/verify a trailing window, then export |
+| `scripts/update_data.py` | Scrape/verify a date range (explicit, or a trailing window by default), then export |
 | `scripts/export_static_data.py` | Filters the working cache down to verified questions -> `site/data/questions.json` |
 | `.github/workflows/update-and-deploy.yml` | Scheduled Action: run `update_data.py`, deploy `site/` to Pages |
-| `site/` | The deployed static site (HTML/CSS/vanilla JS + generated `data/questions.json`) |
+| `site/` | The static site (HTML/CSS/vanilla JS + generated `data/questions.json`) |
 | `cache/quiz_cache.json` | Working cache of scraped + verified quizzes (gitignored — lives in the `data-cache` Release asset) |
-| `app.py`, `templates/`, `static/` | Legacy local-dev Flask app (see "Local development") |
 
 ## Known limitations
 

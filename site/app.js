@@ -1,3 +1,14 @@
+// Theme toggle. The actual light/dark attribute is set as early as possible
+// in <head> (before this file even loads) to avoid a flash of the wrong
+// theme — this just wires up the button to flip it afterward.
+const themeToggle = document.getElementById("theme-toggle");
+themeToggle.addEventListener("click", () => {
+  const root = document.documentElement;
+  const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  root.setAttribute("data-theme", next);
+  localStorage.setItem("theme", next);
+});
+
 const setupScreen = document.getElementById("setup-screen");
 const loadingScreen = document.getElementById("loading-screen");
 const quizScreen = document.getElementById("quiz-screen");
