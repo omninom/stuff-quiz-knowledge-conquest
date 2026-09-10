@@ -45,8 +45,28 @@ jobs:
       - name: Download working cache from data-cache release
         run: |
           mkdir -p cache
-          gh release download data-cache -p quiz_cache.json -D cache/ --clobber || \
-            echo "No existing data-cache release/asset found — starting with an empty cache."
+          if ! gh release view data-cache >/dev/null 2>&1; then
+            echo "No existing data-cache release — starting with an empty cache."
+            exit 0
+          fi
+          ok=0
+          for i in 1 2 3 4 5; do
+            if gh release download data-cache -p quiz_cache.json -D cache/ --clobber; then
+              ok=1
+              break
+            fi
+            echo "Download attempt ${i} failed; retrying..."
+            sleep $((i * 8))
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::data-cache release exists but quiz_cache.json could not be downloaded. Aborting so we do not overwrite history with a trailing-window scrape."
+            exit 1
+          fi
+          if [ ! -s cache/quiz_cache.json ]; then
+            echo "::error::Downloaded quiz_cache.json is empty. Aborting."
+            exit 1
+          fi
+          echo "Restored working cache ($(wc -c < cache/quiz_cache.json) bytes)."
 
       - name: Scrape/verify recent quizzes and export static data
         run: python scripts/update_data.py
